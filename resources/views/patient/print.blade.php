@@ -30,9 +30,9 @@
 <body>
 
     <div class="header">
-        <h1>Laboratorium Klinik Sehat Sentosa</h1>
-        <p>Jl. Jendral Sudirman No. 123, Banjarbaru - Kalimantan Selatan</p>
-        <p>Telp: (0511) 477-XXXX | Email: lab@sehatsentosa.com</p>
+        <h1>Puskesmas Murung Pudak</h1>
+        <p> Jl. Sutomo Jl. Garuda Pangkalan, Belimbing, Kec. Murung Pudak, Kabupaten Tabalong, Kalimantan Selatan 71571</p>
+        <p>Telp: (0511) 477-XXXX | Email: lab@tes.com</p>
     </div>
 
     <table class="meta-table">
@@ -122,13 +122,13 @@
 
     <div class="footer">
         <div class="signature">
-            <p>Banjarbaru, {{ date('d F Y') }}</p>
+            <p>Tabalong, {{ date('d F Y') }}</p>
             <p>Pemeriksa,</p>
             
             <div class="signature-line"></div>
             
             <p><b>{{ $registration->user->name }}</b></p>
-            <p>Petugas Laboratorium</p>
+            <p>Petugas</p>
         </div>
     </div>
 
