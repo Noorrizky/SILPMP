@@ -35,17 +35,35 @@ class RegistrationResource extends Resource
                             ->required(),
                         
                         Forms\Components\Select::make('patient_id')
-                            ->relationship('patient', 'name')
-                            ->searchable() // Biar bisa ketik nama pasien
+                            ->relationship('patient', 'nik') // Biarkan 'nik' sebagai default sort
+                            
+                            // 1. Custom Tampilan (NIK - Nama)
+                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->nik} - {$record->name}")
+                            
+                            // 2. Agar bisa dicari pakai NIK atau Nama
+                            ->searchable(['nik', 'name']) 
+                            
                             ->preload()
                             ->required()
-                            ->createOptionForm([ // Quick Create Pasien kalau belum ada
-                                Forms\Components\TextInput::make('nik')->required(),
-                                Forms\Components\TextInput::make('name')->required(),
-                                Forms\Components\DatePicker::make('dob')->required(),
-                                Forms\Components\Select::make('gender')->options(['L'=>'L', 'P'=>'P'])->required(),
+                            ->createOptionForm([
+                                Forms\Components\TextInput::make('nik')
+                                    ->label('NIK')
+                                    ->required()
+                                    ->maxLength(16),
+                                Forms\Components\TextInput::make('name')
+                                    ->label('Nama Lengkap')
+                                    ->required(),
+                                Forms\Components\DatePicker::make('dob')
+                                    ->label('Tanggal Lahir')
+                                    ->required(),
+                                Forms\Components\Select::make('gender')
+                                    ->label('Jenis Kelamin')
+                                    ->options([
+                                        'L' => 'Laki-laki',
+                                        'P' => 'Perempuan',
+                                    ])
+                                    ->required(),
                             ]),
-
                         Forms\Components\TextInput::make('doctor_sender')
                             ->label('Dokter Pengirim'),
                         
@@ -72,6 +90,7 @@ class RegistrationResource extends Resource
                                     ->label('Jenis Pemeriksaan')
                                     ->relationship('parameter', 'name')
                                     ->searchable()
+                                    ->preload()
                                     ->required()
                                     ->reactive() // Supaya bisa mentrigger event saat dipilih
                                     ->afterStateUpdated(function ($state, callable $set) {
@@ -110,8 +129,9 @@ class RegistrationResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('registration_number')->sortable()->searchable(),
-                Tables\Columns\TextColumn::make('patient.name')->label('Pasien')->searchable(),
-                Tables\Columns\TextColumn::make('created_at')->label('Tanggal')->dateTime(),
+                Tables\Columns\TextColumn::make('patient.nik')->label('Nik')->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('patient.name')->label('Pasien')->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('created_at')->label('Tanggal')->sortable()->dateTime(),
                 Tables\Columns\BadgeColumn::make('status')
                     ->colors([
                         'warning' => 'pending',
