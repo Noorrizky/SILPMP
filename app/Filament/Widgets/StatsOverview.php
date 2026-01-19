@@ -6,6 +6,7 @@ use App\Models\Patient;
 use App\Models\Registration;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Carbon\Carbon; // Don't forget to import Carbon
 
 class StatsOverview extends BaseWidget
 {
@@ -32,6 +33,7 @@ class StatsOverview extends BaseWidget
                 ->description('Hasil sudah valid')
                 ->descriptionIcon('heroicon-m-check-circle')
                 ->color('success'), // Hijau
-        ];
+
+];
     }
 }

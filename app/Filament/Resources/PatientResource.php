@@ -52,19 +52,30 @@ class PatientResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('nik')->searchable(),
                 Tables\Columns\TextColumn::make('name')->searchable(),
-                Tables\Columns\TextColumn::make('dob')->date(),
+                Tables\Columns\TextColumn::make('dob')->label('Tanggal Lahir')->date()->sortable(),
                 Tables\Columns\TextColumn::make('gender'),
-                Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable(),
-            ])
+                Tables\Columns\TextColumn::make('gender')
+                ->label('Jenis Kelamin') // Optional: Make header readable
+                ->sortable(),            // Optional: Enables clicking header to sort A-Z
+            
+            Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable(),
+        ])
             ->filters([
-                //
-            ])
+            // 2. Add the Filter here
+            Tables\Filters\SelectFilter::make('gender')
+                ->label('Jenis Kelamin')
+                ->options([
+                    'L' => 'Laki-laki',
+                    'P' => 'Perempuan',
+                ]),
+        ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-            ]);
+            Tables\Actions\EditAction::make(),
+        ]);
     }
 
     public static function getRelations(): array
