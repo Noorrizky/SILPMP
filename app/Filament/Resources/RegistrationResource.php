@@ -14,7 +14,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Actions\Action;
-
+use pxlrbt\FilamentExcel\Actions\Tables\ExportAction;
+use pxlrbt\FilamentExcel\Exports\ExcelExport;
+use pxlrbt\FilamentExcel\Columns\Column;
 
 class RegistrationResource extends Resource
 {
@@ -129,9 +131,16 @@ class RegistrationResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                Tables\Columns\TextColumn::make('registration_number')->sortable()->searchable(),
+                // Tables\Columns\TextColumn::make('registration_number')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('patient.nik')->label('Nik')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('patient.name')->label('Pasien')->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('results.parameter.name')
+                    ->label('Jenis Pemeriksaan')
+                    ->badge() // Membuat tampilan seperti 'Tags' berwarna
+                    ->separator(',') // Pemisah data
+                    ->color('info') // Warna badge (bisa diganti primary, success, dll)
+                    ->limitList(2) // Hanya tampilkan 2 item pertama, sisanya tertulis "+2 more"
+                    ->searchable(), // Agar bisa dicari berdasarkan nama pemeriksaan
                 Tables\Columns\TextColumn::make('created_at')->label('Tanggal')->sortable()->dateTime(),
                 Tables\Columns\BadgeColumn::make('status')
                     ->colors([
@@ -139,17 +148,90 @@ class RegistrationResource extends Resource
                         'primary' => 'processing',
                         'success' => 'done',
                     ]),
+                
             ])
             ->filters([
-                // --- MULAI KODE FILTER ---
+                // 1. Filter Status (Yang sudah ada)
                 Tables\Filters\SelectFilter::make('status')
-                    ->label('Status Pemeriksaan') // Label yang muncul di UI
+                    ->label('Status Pemeriksaan')
                     ->options([
                         'pending' => 'Menunggu Sampel',
                         'processing' => 'Sedang Diperiksa',
                         'done' => 'Selesai (Valid)',
                     ]),
-                // --- SELESAI KODE FILTER ---
+
+                // 2. Filter Tanggal (BARU)
+                Tables\Filters\Filter::make('created_at')
+                    ->form([
+                        Forms\Components\Select::make('range')
+                            ->label('Rentang Waktu')
+                            ->options([
+                                'today' => 'Hari Ini',
+                                '7_days' => '7 Hari Terakhir',
+                                '30_days' => '30 Hari Terakhir (1 Bulan)',
+                                'this_month' => 'Bulan Ini',
+                                'this_year' => 'Tahun Ini',
+                                'last_year' => '1 Tahun Terakhir',
+                            ]),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['range'],
+                                fn (Builder $query, $date) => match ($date) {
+                                    'today' => $query->whereDate('created_at', now()),
+                                    '7_days' => $query->where('created_at', '>=', now()->subDays(7)),
+                                    '30_days' => $query->where('created_at', '>=', now()->subDays(30)),
+                                    'this_month' => $query->whereMonth('created_at', now()->month)
+                                                          ->whereYear('created_at', now()->year),
+                                    'this_year' => $query->whereYear('created_at', now()->year),
+                                    'last_year' => $query->where('created_at', '>=', now()->subYear()),
+                                    default => $query,
+                                }
+                            );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        // Ini untuk menampilkan badge indikator filter aktif di atas tabel
+                        if (! $data['range']) {
+                            return null;
+                        }
+                        
+                        $labels = [
+                            'today' => 'Hari Ini',
+                            '7_days' => '7 Hari Terakhir',
+                            '30_days' => '30 Hari Terakhir',
+                            'this_month' => 'Bulan Ini',
+                            'this_year' => 'Tahun Ini',
+                            'last_year' => '1 Tahun Terakhir',
+                        ];
+
+                        return 'Waktu: ' . ($labels[$data['range']] ?? '');
+                    }),
+            ])
+            ->headerActions([
+                ExportAction::make()
+                    ->label('Download Laporan PDF')
+                    ->icon('heroicon-o-document-arrow-down') 
+                    ->exports([
+                        ExcelExport::make()
+                            ->fromTable() // Ini kuncinya: ambil kolom persis seperti di tabel
+                            ->withFilename('Laporan_Pendaftaran_' . date('Y-m-d'))
+
+                            // Pilih salah satu =============
+                            ->withWriterType(\Maatwebsite\Excel\Excel::XLSX) // Format PDF
+                            // ->withWriterType(\Maatwebsite\Excel\Excel::DOMPDF) // Format PDF
+                            // Pilih salah satu =============
+                            
+
+
+                            // Jika ingin custom kolom yang di-download (opsional):
+                            ->withColumns([
+                                Column::make('registration_number')->heading('No Reg'),
+                                Column::make('patient.name')->heading('Nama Pasien'),
+                                Column::make('created_at')->heading('Tanggal'),
+                                Column::make('status')->heading('Status'),
+                            ]),
+                    ]),
             ])
             ->actions([
                 Action::make('print')
@@ -180,5 +262,12 @@ class RegistrationResource extends Resource
             'create' => Pages\CreateRegistration::route('/create'),
             'edit' => Pages\EditRegistration::route('/{record}/edit'),
         ];
+    }
+    
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            // Kita load relasi results dan parameter di awal agar ringan
+            ->with(['patient', 'results.parameter']);
     }
 }
