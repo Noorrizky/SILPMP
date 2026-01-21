@@ -6,11 +6,10 @@ use App\Models\Registration;
 use Illuminate\Contracts\View\View;
 use Maatwebsite\Excel\Concerns\FromView;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithDrawings; // 1. Import WithDrawings
-use PhpOffice\PhpSpreadsheet\Worksheet\Drawing; // 2. Import Class Drawing
+use Maatwebsite\Excel\Concerns\WithDrawings;
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use Carbon\Carbon;
 
-// 3. Tambahkan "WithDrawings" di implements
 class LaporanPendaftaranExport implements FromView, ShouldAutoSize, WithDrawings
 {
     protected $filters;
@@ -22,19 +21,25 @@ class LaporanPendaftaranExport implements FromView, ShouldAutoSize, WithDrawings
 
     public function view(): View
     {
-        // ... (Kode query view sama seperti sebelumnya, tidak berubah) ...
-        
         $query = Registration::query()->with(['patient', 'results.parameter']);
         $data = $this->filters;
 
+        // 1. Filter Status
         if (isset($data['status']['value']) && $data['status']['value']) {
             $query->where('status', $data['status']['value']);
         }
 
+        // 2. Filter Tanggal & Pembuatan Label Periode
+        $filterLabel = 'Semua Waktu'; // Default label
+
         if (isset($data['created_at'])) {
             $rangeData = $data['created_at'];
+            
             if (isset($rangeData['range'])) {
-                match ($rangeData['range']) {
+                $range = $rangeData['range'];
+
+                // --- LOGIKA FILTER QUERY ---
+                match ($range) {
                     'today' => $query->whereDate('created_at', now()),
                     '7_days' => $query->where('created_at', '>=', now()->subDays(7)),
                     '30_days' => $query->where('created_at', '>=', now()->subDays(30)),
@@ -46,28 +51,48 @@ class LaporanPendaftaranExport implements FromView, ShouldAutoSize, WithDrawings
                         ->when($rangeData['until'] ?? null, fn ($q, $date) => $q->whereDate('created_at', '<=', $date)),
                     default => $query,
                 };
+
+                // --- LOGIKA PEMBUATAN LABEL (Sama seperti indicateUsing) ---
+                if ($range === 'custom') {
+                    $txt = 'Custom';
+                    if (!empty($rangeData['from'])) {
+                        $txt .= ' dari ' . Carbon::parse($rangeData['from'])->format('d M Y');
+                    }
+                    if (!empty($rangeData['until'])) {
+                        $txt .= ' s/d ' . Carbon::parse($rangeData['until'])->format('d M Y');
+                    }
+                    $filterLabel = $txt;
+                } else {
+                    $labels = [
+                        'today' => 'Hari Ini (' . date('d M Y') . ')',
+                        '7_days' => '7 Hari Terakhir',
+                        '30_days' => '30 Hari Terakhir',
+                        'this_month' => 'Bulan Ini (' . date('F Y') . ')',
+                        'this_year' => 'Tahun Ini (' . date('Y') . ')',
+                        'last_year' => '1 Tahun Terakhir',
+                    ];
+                    $filterLabel = $labels[$range] ?? $range;
+                }
             }
         }
 
+        $registrations = $query->latest()->get();
+
         return view('exports.laporan_pendaftaran', [
-            'registrations' => $query->latest()->get()
+            'registrations' => $registrations,
+            'filterLabel' => $filterLabel, // Kirim label ke view
+            'totalData' => $registrations->count() // Kirim total data
         ]);
     }
 
-    // 4. Method baru untuk menampilkan Logo
     public function drawings()
     {
         $drawing = new Drawing();
         $drawing->setName('Logo Kabupaten');
         $drawing->setDescription('Logo Kabupaten Tabalong');
-        
-        // Pastikan path gambarnya benar sesuai nama file Anda di folder public
         $drawing->setPath(public_path('logo_tabalong.png')); 
-        
-        $drawing->setHeight(90); // Tinggi gambar (sesuaikan agar pas dengan header teks)
-        $drawing->setCoordinates('A1'); // Posisi di pojok kiri atas
-        
-        // Geser sedikit agar tidak terlalu mepet kiri & atas
+        $drawing->setHeight(90); 
+        $drawing->setCoordinates('A1'); 
         $drawing->setOffsetX(10); 
         $drawing->setOffsetY(10); 
 

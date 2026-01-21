@@ -85,48 +85,48 @@ class RegistrationResource extends Resource
                             ])
                             ->default('pending')
                             ->required(),
-                    ])->columns(2),
+                            ])->columns(2),
 
-                Forms\Components\Section::make('Hasil Pemeriksaan')
-                    ->schema([
+                        Forms\Components\Section::make('Hasil Pemeriksaan')
+                            ->schema([
                         Forms\Components\Repeater::make('results') // Relasi HasMany
                             ->relationship()
                             ->schema([
-                                Forms\Components\Select::make('parameter_id')
-                                    ->label('Jenis Pemeriksaan')
-                                    ->relationship('parameter', 'name')
-                                    ->searchable()
-                                    ->preload()
-                                    ->required()
-                                    ->reactive() // Supaya bisa mentrigger event saat dipilih
-                                    ->afterStateUpdated(function ($state, callable $set) {
-                                        // Otomatis tarik snapshot nilai rujukan saat item dipilih
-                                        $param = \App\Models\Parameter::find($state);
-                                        if ($param) {
-                                            $set('ref_range_snapshot', "P: {$param->ref_range_male} | W: {$param->ref_range_female}");
-                                        }
-                                    })
-                                    ->columnSpan(1),
-                                
-                                Forms\Components\TextInput::make('result_value')
-                                    ->label('Hasil')
-                                    ->columnSpan(1),
+                        Forms\Components\Select::make('parameter_id')
+                            ->label('Jenis Pemeriksaan')
+                            ->relationship('parameter', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->reactive() // Supaya bisa mentrigger event saat dipilih
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                // Otomatis tarik snapshot nilai rujukan saat item dipilih
+                                $param = \App\Models\Parameter::find($state);
+                                if ($param) {
+                                    $set('ref_range_snapshot', "P: {$param->ref_range_male} | W: {$param->ref_range_female}");
+                                }
+                            })
+                            ->columnSpan(1),
+                        
+                        Forms\Components\TextInput::make('result_value')
+                            ->label('Hasil')
+                            ->columnSpan(1),
 
-                                // --- TAMBAHKAN INI ---
-                                Forms\Components\TextInput::make('note')
-                                    ->label('Keterangan')
-                                    ->placeholder('Cth: Sampel Hemolisis')
-                                    ->columnSpan(1),
-                                // ---------------------
+                        // --- TAMBAHKAN INI ---
+                        Forms\Components\TextInput::make('note')
+                            ->label('Keterangan')
+                            ->placeholder('Cth: Sampel Hemolisis')
+                            ->columnSpan(1),
+                        // ---------------------
 
-                                Forms\Components\TextInput::make('ref_range_snapshot')
-                                    ->label('Rujukan')
-                                    ->readOnly()
-                                    ->columnSpan(1),
-                            ])
-                            ->columns(4) // Ubah jadi 4 kolom agar muat (Parameter, Hasil, Ket, Rujukan)
-                            ->addActionLabel('Tambah Item Pemeriksaan'),
-                    ]),
+                        Forms\Components\TextInput::make('ref_range_snapshot')
+                            ->label('Rujukan')
+                            ->readOnly()
+                            ->columnSpan(1),
+                    ])
+                    ->columns(4) // Ubah jadi 4 kolom agar muat (Parameter, Hasil, Ket, Rujukan)
+                    ->addActionLabel('Tambah Item Pemeriksaan'),
+                ]),
             ]);
     }
 
