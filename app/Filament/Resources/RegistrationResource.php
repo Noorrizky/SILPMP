@@ -17,6 +17,8 @@ use Filament\Tables\Actions\Action;
 use pxlrbt\FilamentExcel\Actions\Tables\ExportAction;
 use pxlrbt\FilamentExcel\Exports\ExcelExport;
 use pxlrbt\FilamentExcel\Columns\Column;
+use Filament\Forms\Get; // Jangan lupa import ini di paling atas file
+use Carbon\Carbon; // Import Carbon untuk format tanggal
 
 class RegistrationResource extends Resource
 {
@@ -172,30 +174,72 @@ class RegistrationResource extends Resource
                                 'this_month' => 'Bulan Ini',
                                 'this_year' => 'Tahun Ini',
                                 'last_year' => '1 Tahun Terakhir',
-                            ]),
+                                'custom' => 'Pilih Tanggal Sendiri (Custom)', // Opsi Baru
+                            ])
+                            ->default('30_days') // Opsional: set default
+                            ->live(), // PENTING: Agar form bisa berubah dinamis saat dipilih
+
+                        // Input Tanggal Mulai (Hanya muncul jika pilih 'custom')
+                        Forms\Components\DatePicker::make('from')
+                            ->label('Dari Tanggal')
+                            ->visible(fn (Get $get) => $get('range') === 'custom'),
+
+                        // Input Tanggal Sampai (Hanya muncul jika pilih 'custom')
+                        Forms\Components\DatePicker::make('until')
+                            ->label('Sampai Tanggal')
+                            ->visible(fn (Get $get) => $get('range') === 'custom'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
                                 $data['range'],
-                                fn (Builder $query, $date) => match ($date) {
+                                fn (Builder $query, $range) => match ($range) {
                                     'today' => $query->whereDate('created_at', now()),
                                     '7_days' => $query->where('created_at', '>=', now()->subDays(7)),
                                     '30_days' => $query->where('created_at', '>=', now()->subDays(30)),
                                     'this_month' => $query->whereMonth('created_at', now()->month)
-                                                          ->whereYear('created_at', now()->year),
+                                                        ->whereYear('created_at', now()->year),
+                                                        
                                     'this_year' => $query->whereYear('created_at', now()->year),
                                     'last_year' => $query->where('created_at', '>=', now()->subYear()),
+                                    
+                                    // Logika untuk Custom Date
+                                    'custom' => $query
+                                        ->when(
+                                            $data['from'],
+                                            fn (Builder $query, $date) => $query->whereDate('created_at', '>=', $date)
+                                        )
+                                        ->when(
+                                            $data['until'],
+                                            fn (Builder $query, $date) => $query->whereDate('created_at', '<=', $date)
+                                        ),
+                                        
                                     default => $query,
                                 }
                             );
                     })
-                    ->indicateUsing(function (array $data): ?string {
-                        // Ini untuk menampilkan badge indikator filter aktif di atas tabel
-                        if (! $data['range']) {
-                            return null;
-                        }
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
                         
+                        if (! $data['range']) {
+                            return $indicators;
+                        }
+
+                        // Jika user memilih Custom, tampilkan format tanggalnya
+                        if ($data['range'] === 'custom') {
+                            $indicator = 'Waktu: Custom';
+                            if ($data['from']) {
+                                $indicator .= ' dari ' . Carbon::parse($data['from'])->format('d M Y');
+                            }
+                            if ($data['until']) {
+                                $indicator .= ' s/d ' . Carbon::parse($data['until'])->format('d M Y');
+                            }
+                            $indicators['created_at'] = $indicator;
+                            
+                            return $indicators;
+                        }
+
+                        // Label untuk preset standar
                         $labels = [
                             'today' => 'Hari Ini',
                             '7_days' => '7 Hari Terakhir',
@@ -205,33 +249,61 @@ class RegistrationResource extends Resource
                             'last_year' => '1 Tahun Terakhir',
                         ];
 
-                        return 'Waktu: ' . ($labels[$data['range']] ?? '');
+                        $indicators['created_at'] = 'Waktu: ' . ($labels[$data['range']] ?? '');
+
+                        return $indicators;
                     }),
             ])
             ->headerActions([
                 ExportAction::make()
                     ->label('Download Laporan PDF')
                     ->icon('heroicon-o-document-arrow-down') 
+                    ->color('success')
                     ->exports([
-                        ExcelExport::make()
-                            ->fromTable() // Ini kuncinya: ambil kolom persis seperti di tabel
-                            ->withFilename('Laporan_Pendaftaran_' . date('Y-m-d'))
+                    ExcelExport::make()
+                        ->fromTable()
+                        ->withFilename('Laporan_Pendaftaran_' . date('d-m-Y'))
+                        ->withWriterType(\Maatwebsite\Excel\Excel::XLSX)
+                        // ->withWriterType(\Maatwebsite\Excel\Excel::MPDF)
+                        
+                        ->withColumns([
+                            // 1. Kolom No. Reg
+                            Column::make('registration_number')
+                                ->heading('Nomor Registrasi'),
 
-                            // Pilih salah satu =============
-                            ->withWriterType(\Maatwebsite\Excel\Excel::XLSX) // Format PDF
-                            // ->withWriterType(\Maatwebsite\Excel\Excel::DOMPDF) // Format PDF
-                            // Pilih salah satu =============
-                            
+                            // 2. Kolom NIK
+                            Column::make('patient.nik')
+                                ->heading('NIK Pasien'),
 
+                            // 3. Kolom Nama
+                            Column::make('patient.name')
+                                ->heading('Nama Pasien'),
 
-                            // Jika ingin custom kolom yang di-download (opsional):
-                            ->withColumns([
-                                Column::make('registration_number')->heading('No Reg'),
-                                Column::make('patient.name')->heading('Nama Pasien'),
-                                Column::make('created_at')->heading('Tanggal'),
-                                Column::make('status')->heading('Status'),
-                            ]),
-                    ]),
+                            // 4. Kolom Jenis Pemeriksaan (Gabungkan jadi string koma)
+                            Column::make('results')
+                                ->heading('Pemeriksaan')
+                                ->formatStateUsing(function ($state) {
+                                    // $state di sini adalah Collection dari relasi 'results'
+                                    // Kita ambil nama parameternya dan gabungkan dengan koma
+                                    return $state->map(fn ($result) => $result->parameter->name)->join(', ');
+                                }),
+
+                            // 5. Kolom Tanggal (Diformat Cantik)
+                            Column::make('created_at')
+                                ->heading('Waktu Daftar')
+                                ->formatStateUsing(fn ($state) => Carbon::parse($state)->translatedFormat('d F Y H:i')), 
+
+                            // 6. Kolom Status (Diterjemahkan)
+                            Column::make('status')
+                                ->heading('Status Terakhir')
+                                ->formatStateUsing(fn ($state) => match ($state) {
+                                    'pending' => 'Menunggu Sampel',
+                                    'processing' => 'Sedang Diperiksa',
+                                    'done' => 'Selesai',
+                                    default => $state,
+                                }),
+                        ]),
+                ]),
             ])
             ->actions([
                 Action::make('print')

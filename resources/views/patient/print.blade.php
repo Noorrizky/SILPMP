@@ -8,34 +8,53 @@
         .header h1 { margin: 0; font-size: 18px; text-transform: uppercase; }
         .header p { margin: 2px 0; font-size: 11px; }
         
-        .meta-table { width: 100%; margin-bottom: 20px; }
+        /* Table Atas */
+        .meta-table { width: 100%; margin-bottom: 20px; border-collapse: collapse; }
         .meta-table td { padding: 3px; vertical-align: top; }
-        .label { font-weight: bold; width: 120px; }
+        .label { font-weight: bold; width: 130px; }
 
+        /* Table Hasil */
         .result-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
         .result-table th, .result-table td { border: 1px solid #999; padding: 6px; text-align: left; }
         .result-table th { background-color: #f0f0f0; text-transform: uppercase; font-size: 10px; }
 
-        .footer { width: 100%; margin-top: 50px; }
-        .signature { width: 200px; text-align: center; float: right; }
-        .signature-line { margin-top: 60px; border-bottom: 1px solid #000; }
-        
         .badge-done { color: green; border: 1px solid green; padding: 2px 5px; font-size: 9px; border-radius: 3px; }
-        .abnormal { 
-            color: red; 
-            font-weight: bold; 
+        .abnormal { color: red; font-weight: bold; }
+
+        /* PERBAIKAN FOOTER MENGGUNAKAN TABLE (BUKAN FLEX) */
+        .footer-table { 
+            width: 100%; 
+            margin-top: 50px; 
+            border: none; 
         }
-            </style>
+        .footer-cell {
+            width: 50%; /* Bagi 2 kolom rata */
+            text-align: center;
+            vertical-align: top;
+        }
+        .signature-space {
+            height: 70px; /* Tinggi untuk tanda tangan */
+        }
+    </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>Puskesmas Murung Pudak</h1>
-        <p> Jl. Sutomo Jl. Garuda Pangkalan, Belimbing, Kec. Murung Pudak, Kabupaten Tabalong, Kalimantan Selatan 71571</p>
-        <p>Telp: (0511) 477-XXXX | Email: lab@tes.com</p>
+        <h1>PEMERINTAH KABUPATEN TABALONG</h1>
+        <h1>DINAS KESEHATAN</h1>
+        <h1>UPT Puskesmas Murung Pudak</h1>
+        <p> Jln. Pangkalan Rahayu RT. 11, Murung Pudak, Tabalong, Kalimantan Selatan 71571</p>
+        <p>Telp: 08115000487 | Email: murungpudakpkm@gmail.com</p>
+        <p>Laman : pkm-murungpudak.tabalongkab.go.id</p>
     </div>
 
     <table class="meta-table">
+        <tr>
+            <td colspan="4" style="text-align: center; padding-bottom: 15px;">
+                <h3 style="margin:0; text-decoration: underline;">HASIL PEMERIKSAAN LABORATORIUM</h3>
+            </td>
+        </tr>
+        
         <tr>
             <td class="label">No. Registrasi</td>
             <td>: {{ $registration->registration_number }}</td>
@@ -75,22 +94,19 @@
         <tbody>
         @foreach($registration->results as $res)
         @php
-            // 1. Tentukan Nilai Normal berdasarkan Gender Pasien
             $range = ($registration->patient->gender == 'L') 
                 ? $res->parameter->ref_range_male 
                 : $res->parameter->ref_range_female;
 
             $is_abnormal = false;
+            $val = (float) $res->result_value;
+            $min = 0; $max = 0;
 
-            // 2. Logika Cek Angka (Hanya jalan jika Range formatnya "Angka-Angka", misal "12-16")
             if (str_contains($range, '-')) {
                 $bounds = explode('-', $range);
                 if (count($bounds) == 2 && is_numeric($res->result_value)) {
                     $min = (float) trim($bounds[0]);
                     $max = (float) trim($bounds[1]);
-                    $val = (float) $res->result_value;
-
-                    // Cek apakah di luar batas
                     if ($val < $min || $val > $max) {
                         $is_abnormal = true;
                     }
@@ -110,27 +126,38 @@
             </td>
             
             <td>{{ $res->parameter->unit }}</td>
-            <td>{{ $range }}</td> <td>{{ $res->note ?? '-' }}</td>
+            <td>{{ $range }}</td> 
+            <td>{{ $res->note ?? '-' }}</td>
         </tr>
         @endforeach
-    </tbody>
+        </tbody>
     </table>
 
     <div style="font-size: 10px; font-style: italic; margin-bottom: 20px;">
         * Nilai rujukan disesuaikan dengan jenis kelamin dan usia pasien.
     </div>
 
-    <div class="footer">
-        <div class="signature">
-            <p>Tabalong, {{ date('d F Y') }}</p>
-            <p>Pemeriksa,</p>
-            
-            <div class="signature-line"></div>
-            
-            <p><b>{{ $registration->user->name }}</b></p>
-            <p>Petugas</p>
-        </div>
-    </div>
+    <table class="footer-table">
+        <tr>
+            <td class="footer-cell">
+                <p>&nbsp;</p> <p>Dokter Pengirim,</p>
+                
+                <div class="signature-space"></div>
+                
+                <p><b>{{ $registration->doctor_sender ?? '-' }}</b></p>
+            </td>
+
+            <td class="footer-cell">
+                <p>Tabalong, {{ date('d F Y') }}</p>
+                <p>Pemeriksa,</p>
+                
+                <div class="signature-space"></div>
+                
+                <p><b>{{ $registration->user->name }}</b></p>
+                <p>Petugas Laboratorium</p>
+            </td>
+        </tr>
+    </table>
 
 </body>
 </html>
