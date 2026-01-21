@@ -19,6 +19,8 @@ use pxlrbt\FilamentExcel\Exports\ExcelExport;
 use pxlrbt\FilamentExcel\Columns\Column;
 use Filament\Forms\Get; // Jangan lupa import ini di paling atas file
 use Carbon\Carbon; // Import Carbon untuk format tanggal
+use App\Exports\LaporanPendaftaranExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class RegistrationResource extends Resource
 {
@@ -255,55 +257,17 @@ class RegistrationResource extends Resource
                     }),
             ])
             ->headerActions([
-                ExportAction::make()
-                    ->label('Download Laporan PDF')
-                    ->icon('heroicon-o-document-arrow-down') 
+                Action::make('export_custom')
+                    ->label('Download Laporan Excel')
+                    ->icon('heroicon-o-document-arrow-down')
                     ->color('success')
-                    ->exports([
-                    ExcelExport::make()
-                        ->fromTable()
-                        ->withFilename('Laporan_Pendaftaran_' . date('d-m-Y'))
-                        ->withWriterType(\Maatwebsite\Excel\Excel::XLSX)
-                        // ->withWriterType(\Maatwebsite\Excel\Excel::MPDF)
-                        
-                        ->withColumns([
-                            // 1. Kolom No. Reg
-                            Column::make('registration_number')
-                                ->heading('Nomor Registrasi'),
-
-                            // 2. Kolom NIK
-                            Column::make('patient.nik')
-                                ->heading('NIK Pasien'),
-
-                            // 3. Kolom Nama
-                            Column::make('patient.name')
-                                ->heading('Nama Pasien'),
-
-                            // 4. Kolom Jenis Pemeriksaan (Gabungkan jadi string koma)
-                            Column::make('results')
-                                ->heading('Pemeriksaan')
-                                ->formatStateUsing(function ($state) {
-                                    // $state di sini adalah Collection dari relasi 'results'
-                                    // Kita ambil nama parameternya dan gabungkan dengan koma
-                                    return $state->map(fn ($result) => $result->parameter->name)->join(', ');
-                                }),
-
-                            // 5. Kolom Tanggal (Diformat Cantik)
-                            Column::make('created_at')
-                                ->heading('Waktu Daftar')
-                                ->formatStateUsing(fn ($state) => Carbon::parse($state)->translatedFormat('d F Y H:i')), 
-
-                            // 6. Kolom Status (Diterjemahkan)
-                            Column::make('status')
-                                ->heading('Status Terakhir')
-                                ->formatStateUsing(fn ($state) => match ($state) {
-                                    'pending' => 'Menunggu Sampel',
-                                    'processing' => 'Sedang Diperiksa',
-                                    'done' => 'Selesai',
-                                    default => $state,
-                                }),
-                        ]),
-                ]),
+                    ->action(function ($livewire) {
+                        // $livewire->tableFilters adalah array berisi nilai filter yang sedang aktif di layar user
+                        return Excel::download(
+                            new LaporanPendaftaranExport($livewire->tableFilters), 
+                            'Laporan_Pendaftaran_' . date('d-m-Y') . '.xlsx'
+                        );
+                    }),
             ])
             ->actions([
                 Action::make('print')

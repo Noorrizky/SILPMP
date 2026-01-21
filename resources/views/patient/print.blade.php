@@ -4,7 +4,23 @@
     <title>Hasil Lab - {{ $registration->registration_number }}</title>
     <style>
         body { font-family: sans-serif; font-size: 12px; color: #333; }
-        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+        .header { 
+            text-align: center; 
+            margin-bottom: 20px; 
+            border-bottom: 2px solid #000; 
+            padding-bottom: 10px; 
+            position: relative; /* PENTING: Agar logo bisa diposisikan absolute terhadap header */
+        }
+        
+        /* Style untuk Logo */
+        .logo-image {
+            position: absolute; /* Posisi bebas */
+            top: 5px;           /* Jarak dari atas */
+            left: 0px;          /* Jarak dari kiri */
+            width: 75px;        /* Lebar logo, sesuaikan */
+            height: auto;
+        }
+
         .header h1 { margin: 0; font-size: 18px; text-transform: uppercase; }
         .header p { margin: 2px 0; font-size: 11px; }
         
@@ -40,6 +56,7 @@
 <body>
 
     <div class="header">
+        <img src="{{ public_path('logo_tabalong.png') }}" class="logo-image" alt="Logo Kab">
         <h1>PEMERINTAH KABUPATEN TABALONG</h1>
         <h1>DINAS KESEHATAN</h1>
         <h1>UPT Puskesmas Murung Pudak</h1>
